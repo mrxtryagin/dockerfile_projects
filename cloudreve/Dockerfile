@@ -103,8 +103,8 @@ RUN set -ex \
 
 # cloudreve use tcp 5212 port by default
 EXPOSE 5212/tcp
-VOLUME ["/cloudreve/uploads", "/downloads", "/cloudreve/avatar", "/cloudreve/config", "/cloudreve/db"]
+VOLUME ["/usr/local/cloudreve/uploads", "/usr/local/downloads", "/usr/local/cloudreve/avatar", "/usr/local/cloudreve/config", "/usr/local/cloudreve/db","/usr/local/cloudreve/logInfo","/usr/local/cloudreve/statics"]
 
 
 
-ENTRYPOINT ["./cloudreve", "-c", "/cloudreve/config/conf.ini"]
+ENTRYPOINT ["/usr/local/cloudreve", "-c", "/cloudreve/config/conf.ini"]
