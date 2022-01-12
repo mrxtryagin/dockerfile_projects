@@ -9,7 +9,7 @@ RUN mkdir -p $MYPATH/fronted
 WORKDIR $MYPATH/fronted
 
 # copy 前端
-COPY ./fronted .
+COPY cloudreve/fronted .
 
 # If encountered problems like JavaScript heap out of memory, please uncomment the following options
 ENV NODE_OPTIONS --max_old_space_size=4096
@@ -31,7 +31,7 @@ ENV MYPATH /usr/local
 RUN mkdir -p backend
 WORKDIR $MYPATH/backend
 
-COPY ./backend .
+COPY cloudreve/backend .
 # build 后端
 RUN set -ex \
     && go build -o cloudreve
