@@ -1,12 +1,14 @@
 
 
+
+
 # statics backend
 FROM golang:1.16-alpine AS be-builder
 RUN echo 'before build....' \
     && apk update \
     && apk add git yarn build-base gcc abuild binutils binutils-doc gcc-doc
 
-ENV MYPATH /usr/local
+ENV MYPATH "/cloudreve_project"
 
 WORKDIR $MYPATH
 
@@ -22,22 +24,23 @@ RUN set -ex \
     # 将要部分clone的目录相对根目录的路径写入配置文件
     && echo "cloudreve" >> .git/info/sparse-checkout \
     #pull下来代码
-    && git pull origin master 
+    && git pull origin master \
+    && mv cloudreve cloudreve_source 
 RUN echo "checkout cloudreve done"
 # 暴露 源地址
-ENV SourcePath $MYPATH/cloudreve
+ENV SourcePath "$MYPATH/cloudreve_source"
 
 
 
 # 处理前端代码
 RUN echo 'start to build fronted...'
-RUN mkdir -p $MYPATH/fronted
+# RUN mkdir -p "$MYPATH/fronted"
 
-WORKDIR $MYPATH/fronted
+
 
 # copy 前端
-COPY $SourcePath/fronted .
-
+RUN cp -r "$SourcePath/fronted" .
+WORKDIR "$MYPATH/fronted"
 # If encountered problems like JavaScript heap out of memory, please uncomment the following options
 ENV NODE_OPTIONS --max_old_space_size=2048
 
@@ -46,8 +49,7 @@ ENV NODE_OPTIONS --max_old_space_size=2048
 RUN set -ex \
     && yarn install --network-timeout 600000 \
     && yarn run build
-# 重命名
-RUN mv build statics
+
 
 RUN echo 'build fronted successfully!'
 
@@ -55,12 +57,13 @@ RUN echo 'build fronted successfully!'
 RUN echo 'start to build backend...'
 ENV GO111MODULE on
 
-
+WORKDIR $MYPATH
 # 处理后端源代码
-RUN mkdir -p $MYPATH/backend
-WORKDIR $MYPATH/backend
+# RUN mkdir -p "$MYPATH/backend"
+RUN cp -r "$SourcePath/backend" .
+WORKDIR "$MYPATH/backend"
 
-COPY $SourcePath/backend .
+
 # build 后端
 RUN set -ex \
     && go build -o cloudreve
@@ -68,7 +71,7 @@ RUN echo 'build backend successfully!'
 # statics final image
 FROM alpine:3.12 AS dist
 
-ENV MYPATH /usr/local
+ENV MYPATH "/cloudreve_project"
 LABEL maintainer="mrx"
 ENV TZ="Asia/Shanghai"
 
@@ -76,13 +79,17 @@ ENV TZ="Asia/Shanghai"
 WORKDIR $MYPATH
 
 # 复制前后端 编译的东西
-RUN mkdir -p $MYPATH/statics
-COPY --from=be-builder $MYPATH/fronted/statics $MYPATH/statics
-COPY --from=be-builder $MYPATH/backend/cloudreve .
+COPY --from=be-builder "$MYPATH/fronted/build" .
+# 重命名
+RUN mv build statics
+
+COPY --from=be-builder "$MYPATH/backend/cloudreve" .
 
 
 # COPY --from=be-builder /go/bin/Cloudreve /cloudreve/cloudreve
 # COPY docker-bootstrap.sh /cloudreve/bootstrap.sh
+
+
 
 RUN set -ex \
     && echo ">>>>>> update dependencies" \
@@ -108,8 +115,8 @@ RUN set -ex \
 
 # cloudreve use tcp 5212 port by default
 EXPOSE 5212
-VOLUME ["/usr/local/cloudreve/uploads", "/usr/local/downloads", "/usr/local/cloudreve/avatar", "/usr/local/cloudreve/config", "/usr/local/cloudreve/db","/usr/local/cloudreve/logInfo","/usr/local/cloudreve/statics"]
+VOLUME ["/cloudreve_project/uploads", "/downloads", "/cloudreve_project/avatar", "/cloudreve_project/config", "/cloudreve_project/db","/cloudreve_project/logInfo","/cloudreve_project/statics"]
 
 
 
-ENTRYPOINT ["/usr/local/cloudreve", "-c", "/cloudreve/config/conf.ini"]
+ENTRYPOINT ["/cloudreve_project/cloudreve", "-c", "/cloudreve_project/config"]
