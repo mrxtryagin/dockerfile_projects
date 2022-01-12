@@ -72,39 +72,36 @@ ENV TZ ${TZ}
 COPY --from=fe-builder $MYPATH/fronted/statics .
 COPY --from=be-builder $MYPATH/backend/cloudreve .
 
-# 增加cloudreve 权限
-RUN chmod +x cloudreve
 
 # COPY --from=be-builder /go/bin/Cloudreve /cloudreve/cloudreve
 # COPY docker-bootstrap.sh /cloudreve/bootstrap.sh
 
 RUN set -ex \
-    && ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && echo ">>>>>> update dependencies" \
+    && apk update \
+    && apk add tzdata \
+    && echo ">>>>>> set up timezone" \
+    && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo ${TZ} > /etc/timezone \
-    # 删除前后端 遗留文件
-    && rm -rf  $MYPATH/fronted \
-    && rm -rf  $MYPATH/backend \
-    # 建立配置
-    && mkdir /etc/cloudreve \
-    # db的配置
-    && ln -s /etc/cloudreve/cloureve.db /cloudreve/cloudreve.db \
-    # conf的配置
-    && ln -s /etc/cloudreve/conf.ini /cloudreve/conf.ini \
-    # statics的配置
-    && ln -s /etc/cloudreve/statics /cloudreve/statics \
-    # log的配置
-    && ln -s /etc/cloudreve/logInfo /cloudreve/logInfo \
-    # data下载目录的配置 aria2的路径要与之相似
-    && ln -s /etc/cloudreve/data /cloudreve/data 
+    && echo ">>>>>> fix cloudreve-main premission" \
+    && chmod +x cloudreve
+    # # 建立配置
+    # && mkdir /etc/cloudreve \
+    # # db的配置
+    # && ln -s /etc/cloudreve/cloureve.db /cloudreve/cloudreve.db \
+    # # conf的配置
+    # && ln -s /etc/cloudreve/conf.ini /cloudreve/conf.ini \
+    # # statics的配置
+    # && ln -s /etc/cloudreve/statics /cloudreve/statics \
+    # # log的配置
+    # && ln -s /etc/cloudreve/logInfo /cloudreve/logInfo \
+    # # data下载目录的配置 aria2的路径要与之相似
+    # && ln -s /etc/cloudreve/data /cloudreve/data 
 
 # cloudreve use tcp 5212 port by default
 EXPOSE 5212/tcp
-
-# cloudreve stores all files(including executable file) in the `/cloudreve`
-# directory by default; users should mount the configfile to the `/etc/cloudreve`
-# directory by themselves for persistence considerations, and the data storage
-# directory recommends using `/data` directory.
-VOLUME /etc/cloudreve
+VOLUME ["/cloudreve/uploads", "/downloads", "/cloudreve/avatar", "/cloudreve/config", "/cloudreve/db"]
 
 
-ENTRYPOINT ["/usr/local/cloudreve"]
+
+ENTRYPOINT ["./cloudreve", "-c", "/cloudreve/config/conf.ini"]
