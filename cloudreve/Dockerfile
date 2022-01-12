@@ -24,8 +24,10 @@ RUN set -ex \
 RUN mv build statics
 
 # statics backend
-FROM golang:1.15.1-alpine3.12 AS be-builder
+FROM golang AS be-builder
+
 ENV GO111MODULE on
+
 ENV MYPATH /usr/local
 # 处理后端源代码
 RUN mkdir -p backend
