@@ -56,7 +56,7 @@ RUN set -ex \
 #     -w -s"
 
 # statics final image
-FROM alpine:3.12 AS dist
+FROM lsiobase/alpine:3.13 AS dist
 
 LABEL maintainer="mrx"
 
