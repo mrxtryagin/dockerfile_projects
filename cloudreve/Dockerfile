@@ -12,7 +12,7 @@ WORKDIR $MYPATH/fronted
 COPY cloudreve/fronted .
 
 # If encountered problems like JavaScript heap out of memory, please uncomment the following options
-ENV NODE_OPTIONS --max_old_space_size=4096
+ENV NODE_OPTIONS --max_old_space_size=2048
 
 # yarn repo connection is unstable, adjust the network timeout to 10 min.
 # yarn build
@@ -24,7 +24,10 @@ RUN set -ex \
 RUN mv build statics
 
 # statics backend
-FROM golang AS be-builder
+FROM golang:1.16-alpine AS be-builder
+
+RUN apk update \
+    && apk add  build-base gcc abuild binutils binutils-doc gcc-doc
 
 ENV GO111MODULE on
 
@@ -56,7 +59,7 @@ RUN set -ex \
 #     -w -s"
 
 # statics final image
-FROM lsiobase/alpine:3.13 AS dist
+FROM alpine:3.12 AS dist
 
 LABEL maintainer="mrx"
 
