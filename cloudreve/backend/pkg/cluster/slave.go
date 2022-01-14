@@ -168,7 +168,7 @@ func (node *SlaveNode) StartPingLoop() {
 	recoverDuration := time.Duration(model.GetIntSetting("slave_recover_interval", 600)) * time.Second
 	pingTicker := time.Duration(0)
 
-	util.Log().Debug("从机节点 [%s] 启动心跳循环", node.Model.Name)
+	util.Log().Info("从机节点 [%s] 启动心跳循环", node.Model.Name)
 	retry := 0
 	recoverMode := false
 	isFirstLoop := true
@@ -181,8 +181,15 @@ loop:
 				pingTicker = tickDuration
 			}
 
-			util.Log().Debug("从机节点 [%s] 发送Ping", node.Model.Name)
+			//util.Log().Debug("从机节点 [%s] 发送Ping", node.Model.Name)
+			_start := time.Now().Unix()
 			res, err := node.Ping(node.getHeartbeatContent(isFirstLoop))
+			_end := time.Now().Unix()
+			if _end-_start >= 5 {
+				util.Log().Warning("从机节点 [%s] 发送Ping, cost: %d s", node.Model.Name, _end-_start)
+			} else {
+				util.Log().Debug("从机节点 [%s] 发送Ping, cost: %d s", node.Model.Name, _end-_start)
+			}
 			isFirstLoop = false
 
 			if err != nil {
@@ -274,18 +281,29 @@ func (s *slaveCaller) Init() error {
 	return nil
 }
 
+var (
+	slaveRecoverInterval = model.GetIntSetting("slave_recover_interval", 600)
+)
+
 // SendAria2Call send remote aria2 call to slave node
 func (s *slaveCaller) SendAria2Call(body *serializer.SlaveAria2Call, scope string) (*serializer.Response, error) {
+
 	reqReader, err := getAria2RequestBody(body)
 	if err != nil {
 		return nil, err
 	}
-
-	return s.Client.Request(
+	// 检验没问题 也就是说是服务端擅自断开了 链接 是服务端的问题
+	//util.Log().Info("即将发送的请求为:scope为:%s timeout 为 %d s", scope, slaveRecoverInterval)
+	_start := time.Now().Unix()
+	res := s.Client.Request(
 		"POST",
 		"aria2/"+scope,
 		reqReader,
-	).CheckHTTPResponse(200).DecodeResponse()
+		request.WithTimeout(time.Duration(slaveRecoverInterval)*time.Second), //规定的秒数
+	)
+	_end := time.Now().Unix()
+	util.Log().Info("aria2请求: %s 耗时:%d s", scope, _end-_start)
+	return res.CheckHTTPResponse(200).DecodeResponse()
 }
 
 func (s *slaveCaller) CreateTask(task *model.Download, options map[string]interface{}) (string, error) {
@@ -296,7 +314,6 @@ func (s *slaveCaller) CreateTask(task *model.Download, options map[string]interf
 		Task:         task,
 		GroupOptions: options,
 	}
-
 	res, err := s.SendAria2Call(req, "task")
 	if err != nil {
 		return "", err
@@ -405,6 +422,6 @@ func getAria2RequestBody(body *serializer.SlaveAria2Call) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	//util.Log().Info(" aria2 即将发送的body为:%s", reqBodyEncoded)
 	return strings.NewReader(string(reqBodyEncoded)), nil
 }

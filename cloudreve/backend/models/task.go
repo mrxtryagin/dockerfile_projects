@@ -52,6 +52,11 @@ func (task *Task) SetSpeed(speed float64) error {
 	return DB.Model(task).Select("speed").Updates(map[string]interface{}{"speed": speed}).Error
 }
 
+//SetSpeed 设定速度信息
+func SetSpeedById(taskId uint, speed float64) error {
+	return DB.Debug().Table("tasks").Select("speed").Where("id = ?", taskId).Updates(map[string]interface{}{"speed": speed}).Error
+}
+
 //SetMap 设置一个map更新
 func (task *Task) SetMap(maps map[string]interface{}) error {
 	return DB.Model(task).Updates(maps).Error

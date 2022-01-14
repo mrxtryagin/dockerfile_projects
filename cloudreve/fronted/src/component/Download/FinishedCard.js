@@ -359,7 +359,7 @@ export default function FinishedCard(props) {
         }
     };
 
-    const copyToClipboard = (text,info) => {
+    const copyToClipboard = (text, info) => {
         try {
             navigator.clipboard.writeText(text);
             ToggleSnackbar("top", "center", "已复制到剪切板", "success");
@@ -370,7 +370,7 @@ export default function FinishedCard(props) {
                 document.body.appendChild(cInput);
                 cInput.select(); // 选取文本域内容;
                 document.execCommand("Copy");
-                ToggleSnackbar("top", "center", info?info:"已复制到剪切板", "success");
+                ToggleSnackbar("top", "center", info ? info : "已复制到剪切板", "success");
                 cInput.remove();
             } catch (e1) {
                 ToggleSnackbar("top", "center", "目前系统不支持直接复制", "error");
@@ -545,7 +545,7 @@ export default function FinishedCard(props) {
                                 &&
                                 props.task.other_info
                                 &&
-                                props.task.other_info.try_count_info !== undefined &&  props.task.other_info.try_count_info !== 0
+                                props.task.other_info.try_count_info !== undefined && props.task.other_info.try_count_info !== 0
                                 &&
                                 (<Chip
                                         size="small"
@@ -725,7 +725,10 @@ export default function FinishedCard(props) {
                             className={classes.actionButton}
                             onClick={() => {
                                 history.push("/home?path=" +
-                                    encodeURIComponent(props.task.dst + (props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ? (props.task.mode === "multi" ? "/" + props.task.name : "") : "")));
+                                    // encodeURIComponent(props.task.dst + (props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ? (props.task.mode === "multi" ? "/" + props.task.name : "") : "")));
+                                //如果转存完成 或者 出错但是错误是已有同名文件存在 则可以给完成路径名 否则 只给dst
+                                encodeURIComponent(props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ?
+                                    (props.task.mode === "multi" ? (props.task.dst.endsWith("/") ? props.task.dst + props.task.name : props.task.dst + "/" + props.task.name) : props.task.dst) : props.task.dst))
                             }
                             }
                             title={"打开存放目录"}
@@ -748,9 +751,9 @@ export default function FinishedCard(props) {
                         </IconButton>
                         <IconButton
                             className={classes.actionButton}
-                            onClick={(props.task.status === 3 || props.task.status === 5 || props.task.task_status ===-1 ||  (props.task.status === 4 && props.task.task_status === 4)) ? reDownload : reLoadTask}
-                            disabled={loading || (props.task.status === 4  && (props.task.task_status === 0 || props.task.task_status === 1))} //loading 或者 下载状态为4并且转存状态为[0 1] 的时候 不给按
-                            title={(props.task.status === 3 || props.task.status === 5 || props.task.task_status ===-1 || (props.task.status === 4 && props.task.task_status === 4)) ? "重新下载" : "重新转存"}
+                            onClick={(props.task.status === 3 || props.task.status === 5 || props.task.task_status === -1 || (props.task.status === 4 && props.task.task_status === 4)) ? reDownload : reLoadTask}
+                            disabled={loading || (props.task.status === 4 && (props.task.task_status === 0 || props.task.task_status === 1))} //loading 或者 下载状态为4并且转存状态为[0 1] 的时候 不给按
+                            title={(props.task.status === 3 || props.task.status === 5 || props.task.task_status === -1 || (props.task.status === 4 && props.task.task_status === 4)) ? "重新下载" : "重新转存"}
                             size="small"
                         >
                             <ReplayIcon />
@@ -759,7 +762,7 @@ export default function FinishedCard(props) {
                             className={classes.actionButton}
                             onClick={() =>
                                 copyToClipboard(
-                                    props.task.name,"已成功复制文件名到剪切板"
+                                    props.task.name, "已成功复制文件名到剪切板"
                                 )
                             }
                             title="复制"
@@ -841,7 +844,7 @@ export default function FinishedCard(props) {
                                                 className={classes.copy}
                                                 onClick={() =>
                                                     copyToClipboard(
-                                                        props.task.source,"已成功复制原始连接到剪切板"
+                                                        props.task.source, "已成功复制原始连接到剪切板"
                                                     )
                                                 }
                                                 title="复制"

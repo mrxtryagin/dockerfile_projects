@@ -62,6 +62,7 @@ var ThumbConfig = &thumb{
 
 // SlaveConfig 从机配置
 var SlaveConfig = &slave{
+	SlaveDB:         false, //slave是否也可以连接db
 	CallbackTimeout: 20,
 	SignatureTTL:    60,
 }
@@ -78,5 +79,6 @@ var UnixConfig = &unix{
 
 //其他配置
 var OthersConfig = &others{
+
 	UploadChunkSize: 10,
 }

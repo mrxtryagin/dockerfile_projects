@@ -5,6 +5,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gin-gonic/gin"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"github.com/yezihack/e"
 	"io"
 	"log"
 	"os"
@@ -188,6 +189,14 @@ func (ll *Logger) PanicNotTruePanic(format string, v ...interface{}) {
 	_loggerError.Printf("%s %s\n",
 		"[Panic]",
 		msg)
+}
+func (ll *Logger) PrintTrace(err error) {
+	e1 := e.New(fmt.Sprintf("%v", err))
+	if e.Assert(e1) {
+		e11 := e.Convert(e1)
+		ll.Error(e11.Msg())
+
+	}
 }
 
 // Error 错误

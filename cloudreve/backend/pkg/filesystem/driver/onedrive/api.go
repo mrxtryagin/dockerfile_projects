@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudreve/Cloudreve/v3/pkg/conf"
+	"github.com/cloudreve/Cloudreve/v3/pkg/serializer"
+	"github.com/jinzhu/gorm"
 	"github.com/shopspring/decimal"
 	"io"
 	"io/ioutil"
@@ -273,8 +275,15 @@ func (client *Client) Upload(ctx context.Context, dst string, size int, file io.
 		overwrite = "rename"
 	}
 	var task *model.Task
+	var slaveTask *serializer.SlaveTransferReq
+	var _task *model.Task //slave的task信息
 	if ctx.Value(fsctx.TaskInfo) != nil {
 		task = ctx.Value(fsctx.TaskInfo).(*model.Task)
+	} else if ctx.Value(fsctx.SlaveInfo) != nil {
+		slaveTask = ctx.Value(fsctx.SlaveInfo).(*serializer.SlaveTransferReq)
+		if slaveTask.TaskId != 0 {
+			_task = &model.Task{Model: gorm.Model{ID: slaveTask.TaskId}}
+		}
 	}
 
 	ChunkSize = util.If(conf.OthersConfig.UploadChunkSize > 128, 10*1024*1024, conf.OthersConfig.UploadChunkSize*1024*1024).(uint64)
@@ -335,6 +344,18 @@ func (client *Client) Upload(ctx context.Context, dst string, size int, file io.
 			if task != nil {
 				task.SetSpeed(_speed)
 				util.Log().Info("taskId: %d progress: %d chunk : %d/%d uploaded!,cost: %g s speed: %s /s", task.ID, task.Progress, i+1, chunkNum, cost, util.ConvertSizeToString(_speed))
+			} else if slaveTask != nil {
+				//if slaveTask.TaskId != 0 {
+				//	model.SetSpeedById(slaveTask.TaskId, _speed)
+				//}
+				if model.DB != nil && _task != nil {
+					//model 实例存在 _task也存在
+					_task.SetSpeed(_speed)
+
+				}
+				util.Log().Info("\n==========\nslave side: \n%s --> %s\n chunk : %d/%d uploaded!,cost: %g s speed: %s /s\n==========", slaveTask.Src, slaveTask.Dst, i+1, chunkNum, cost, util.ConvertSizeToString(_speed))
+			} else {
+				util.Log().Info("unknown process:chunk : %d/%d uploaded!,cost: %g s speed: %s /s", i+1, chunkNum, cost, util.ConvertSizeToString(_speed))
 			}
 			if err != nil {
 				return err
@@ -645,7 +666,7 @@ func (client *Client) request(ctx context.Context, method string, url string, bo
 	if res.Response.StatusCode < 200 || res.Response.StatusCode >= 300 {
 		decodeErr = json.Unmarshal([]byte(respBody), &errResp)
 		if decodeErr != nil {
-			util.Log().Debug("Onedrive返回未知响应[%s]", respBody)
+			util.Log().Error("Onedrive返回未知响应[%s]", respBody)
 			return "", sysError(decodeErr)
 		}
 		return "", &errResp

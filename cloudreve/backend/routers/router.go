@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"context"
 	"github.com/cloudreve/Cloudreve/v3/middleware"
 	"github.com/cloudreve/Cloudreve/v3/pkg/auth"
 	"github.com/cloudreve/Cloudreve/v3/pkg/cluster"
@@ -11,6 +12,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
 )
 
 // InitRouter 初始化路由
@@ -24,9 +27,36 @@ func InitRouter() *gin.Engine {
 
 }
 
+func timeoutMiddleware(timeout time.Duration) func(c *gin.Context) {
+	return func(c *gin.Context) {
+
+		// wrap the request context with a timeout
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+
+		defer func() {
+			// check if context timeout was reached
+			if ctx.Err() == context.DeadlineExceeded {
+				util.Log().Info("超时了...")
+				// write response and abort the request
+				c.Writer.WriteHeader(http.StatusGatewayTimeout)
+				c.Abort()
+			}
+
+			//cancel to clear resources after finished
+			cancel()
+		}()
+
+		// replace request with context wrapped request
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
 // InitSlaveRouter 初始化从机模式路由
 func InitSlaveRouter() *gin.Engine {
 	r := gin.Default()
+	//r.Use(timeoutMiddleware(time.Microsecond * 1))
+
 	// 跨域相关
 	InitCORS(r)
 	v3 := r.Group("/api/v3/slave")

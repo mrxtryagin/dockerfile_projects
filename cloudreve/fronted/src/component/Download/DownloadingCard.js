@@ -908,7 +908,7 @@ export default function DownloadingCard(props) {
                             {/*</IconButton>*/}
                             <IconButton
                                 className={classes.actionButton}
-                                onClick={remove}
+                                onClick={cancel}
                                 disabled={loading}
                                 title="取消任务"
                                 size="small"

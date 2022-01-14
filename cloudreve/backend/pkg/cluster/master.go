@@ -230,8 +230,9 @@ func (r *rpcService) Status(task *model.Download) (rpc.StatusInfo, error) {
 }
 
 func (r *rpcService) Cancel(task *model.Download) error {
-	// 取消下载任务
-	_, err := r.Caller.Remove(task.GID)
+	// 取消下载任务 todo:改为强制取消
+	util.Log().Info("强制取消下载任务: %d GID :%s", task.ID, task.GID)
+	_, err := r.Caller.ForceRemove(task.GID)
 	if err != nil {
 		util.Log().Warning("无法取消离线下载任务[%s], %s", task.GID, err)
 	}

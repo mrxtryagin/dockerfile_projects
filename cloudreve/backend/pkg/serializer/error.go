@@ -2,7 +2,6 @@ package serializer
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
 )
 
 // AppError 应用错误，实现了error接口
@@ -120,7 +119,9 @@ func Err(errCode int, msg string, err error) Response {
 		Msg:  msg,
 	}
 	// 生产环境隐藏底层报错
-	if err != nil && gin.Mode() != gin.ReleaseMode {
+	//if err != nil && gin.Mode() != gin.ReleaseMode {
+	//}
+	if err != nil {
 		res.Error = err.Error()
 	}
 	return res

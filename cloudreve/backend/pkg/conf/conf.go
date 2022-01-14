@@ -43,6 +43,7 @@ type slave struct {
 	Secret          string `validate:"omitempty,gte=64"`
 	CallbackTimeout int    `validate:"omitempty,gte=1"`
 	SignatureTTL    int    `validate:"omitempty,gte=1"`
+	SlaveDB         bool   //slave是否也可以连接db
 }
 
 // captcha 验证码配置

@@ -44,7 +44,7 @@ func SignRequest(instance Auth, r *http.Request, expires int64) *http.Request {
 
 	// 生成签名
 	sign := instance.Sign(getSignContent(r), expires)
-
+	//util.Log().Info("签名为:%s", sign)
 	// 将签名加到请求Header中
 	r.Header["Authorization"] = []string{"Bearer " + sign}
 	return r

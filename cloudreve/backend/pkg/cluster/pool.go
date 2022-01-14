@@ -83,7 +83,7 @@ func (pool *NodePool) GetNodeByID(id uint) Node {
 }
 
 func (pool *NodePool) nodeStatusChange(isActive bool, id uint) {
-	util.Log().Debug("从机节点 [ID=%d] 状态变更 [Active=%t]", id, isActive)
+	util.Log().Info("从机节点 [ID=%d] 状态变更 [Active=%t]", id, isActive)
 	var node Node
 	pool.lock.Lock()
 	if n, ok := pool.inactive[id]; ok {
@@ -181,7 +181,10 @@ func (pool *NodePool) BalanceNodeByFeature(feature string, lb balancer.Balancer)
 	if nodes, ok := pool.featureMap[feature]; ok {
 		err, res := lb.NextPeer(nodes)
 		if err == nil {
-			return nil, res.(Node)
+			node := res.(Node)
+			nodeObj := node.DBModel()
+			util.Log().Info("本次选中的节点为: %d 名为: %s", nodeObj.ID, nodeObj.Name)
+			return nil, node
 		}
 
 		return err, nil

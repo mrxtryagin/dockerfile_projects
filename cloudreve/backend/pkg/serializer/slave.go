@@ -40,15 +40,19 @@ type SlaveAria2Call struct {
 
 // SlaveTransferReq 从机中转任务创建请求
 type SlaveTransferReq struct {
-	Src    string        `json:"src"`
-	Dst    string        `json:"dst"`
-	Policy *model.Policy `json:"policy"`
+	Src     string        `json:"src"`
+	Dst     string        `json:"dst"`
+	Policy  *model.Policy `json:"policy"`
+	TaskId  uint          `json:"taskId"`
+	OtherId int64         `json:"otherId"`
 }
 
 // Hash 返回创建请求的唯一标识，保持创建请求幂等
 func (s *SlaveTransferReq) Hash(id string) string {
 	h := sha1.New()
-	h.Write([]byte(fmt.Sprintf("transfer-%s-%s-%s-%d", id, s.Src, s.Dst, s.Policy.ID)))
+	res := fmt.Sprintf("transfer-%s-%s-%s-%d-%d-%d", id, s.Src, s.Dst, s.Policy.ID, s.TaskId, s.OtherId)
+	//util.Log().Info("使用 %s 计算hash", res)
+	h.Write([]byte(res))
 	bs := h.Sum(nil)
 	return fmt.Sprintf("%x", bs)
 }

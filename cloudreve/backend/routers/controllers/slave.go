@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
 	"net/url"
 	"strconv"
 
@@ -180,6 +181,7 @@ func SlaveList(c *gin.Context) {
 
 // SlaveHeartbeat 接受主机心跳包
 func SlaveHeartbeat(c *gin.Context) {
+
 	var service serializer.NodePingReq
 	if err := c.ShouldBindJSON(&service); err == nil {
 		res := node.HandleMasterHeartbeat(&service)
@@ -191,6 +193,7 @@ func SlaveHeartbeat(c *gin.Context) {
 
 // SlaveAria2Create 创建 Aria2 任务
 func SlaveAria2Create(c *gin.Context) {
+	util.Log().Info("即将由本节点承接中转任务...")
 	var service serializer.SlaveAria2Call
 	if err := c.ShouldBindJSON(&service); err == nil {
 		res := aria2.Add(c, &service)

@@ -51,4 +51,10 @@ const (
 
 	//taskKey
 	TaskInfo
+
+	//slaveKey
+	SlaveInfo
+
+	//otherKey
+	OtherId
 )

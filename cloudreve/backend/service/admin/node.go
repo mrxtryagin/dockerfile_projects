@@ -89,7 +89,26 @@ func (service *ToggleNodeService) Toggle() serializer.Response {
 
 	// 是否为系统节点
 	if node.ID <= 1 {
-		return serializer.Err(serializer.CodeNoPermissionErr, "系统节点无法更改", err)
+		//如果是系统节点 并且关闭 直接启动就好了
+		if node.Status == model.NodeSuspend && service.Desired == 0 {
+			//cluster.Default.Add(&node)
+		} else {
+			//如果是系统节点并且开启,讨论是否关闭
+			//寻找当前活跃节点
+			nodes, err := model.GetNodesByStatus(model.NodeActive)
+			if err != nil {
+				return serializer.Err(serializer.CodeNotFullySuccess, "在获取节点列表时出现错误", err)
+			}
+
+			if len(nodes) > 1 {
+				//如果 大于1个 说明有其余节点,可以关闭
+				//cluster.Default.Delete(node.ID)
+			} else {
+				return serializer.Err(serializer.CodeNoPermissionErr, "目前活跃节点只有系统节点,此时的系统节点不可关闭", nil)
+			}
+
+		}
+
 	}
 
 	if err = node.SetStatus(service.Desired); err != nil {

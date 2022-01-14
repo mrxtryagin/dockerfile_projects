@@ -77,11 +77,10 @@ ENV TZ="Asia/Shanghai"
 
 
 WORKDIR $MYPATH
-
+RUN mkdir -p statics
 # 复制前后端 编译的东西
-COPY --from=be-builder "$MYPATH/fronted/build" .
-# 重命名
-RUN mv build statics
+COPY --from=be-builder "$MYPATH/fronted/build" "statics"
+
 
 COPY --from=be-builder "$MYPATH/backend/cloudreve" .
 

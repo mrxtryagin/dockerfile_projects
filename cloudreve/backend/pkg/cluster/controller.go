@@ -11,6 +11,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v3/pkg/mq"
 	"github.com/cloudreve/Cloudreve/v3/pkg/request"
 	"github.com/cloudreve/Cloudreve/v3/pkg/serializer"
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
 	"github.com/jinzhu/gorm"
 	"net/url"
 	"sync"
@@ -158,6 +159,7 @@ func (c *slaveController) SubmitTask(id string, job interface{}, hash string, su
 	if node, ok := c.masters[id]; ok {
 		if _, ok := node.jobTracker[hash]; ok {
 			// 任务已存在，直接返回
+			util.Log().Info("任务: %s 已存在,直接返回", id)
 			return nil
 		}
 

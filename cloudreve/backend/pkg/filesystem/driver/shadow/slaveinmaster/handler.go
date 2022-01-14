@@ -61,6 +61,17 @@ func (d *Driver) Put(ctx context.Context, file io.ReadCloser, dst string, size u
 		Dst:    dst,
 		Policy: d.policy,
 	}
+	var task *model.Task
+	//任务信息
+	if ctx.Value(fsctx.TaskInfo) != nil {
+		task = ctx.Value(fsctx.TaskInfo).(*model.Task)
+		req.TaskId = task.ID
+	}
+	//其他标识id
+	if ctx.Value(fsctx.OtherId) != nil {
+		otherId := ctx.Value(fsctx.OtherId).(int64)
+		req.OtherId = otherId
+	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -89,6 +100,7 @@ func (d *Driver) Put(ctx context.Context, file io.ReadCloser, dst string, size u
 		return ErrWaitResultTimeout
 	case msg := <-resChan:
 		if msg.Event != serializer.SlaveTransferSuccess {
+			//util.Log().Info("接收到来自从机 %s的消息", msg.TriggeredBy)
 			return errors.New(msg.Content.(serializer.SlaveTransferResult).Error)
 		}
 	}

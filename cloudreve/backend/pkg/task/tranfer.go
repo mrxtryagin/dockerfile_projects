@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cloudreve/Cloudreve/v3/pkg/cluster"
+	"github.com/shopspring/decimal"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,9 +120,18 @@ func (job *TransferTask) Do() {
 	start := time.Now().Unix()
 	//当前的任务的index
 	LocalIndex := util.If(job.TaskModel.Progress == 0, 1, job.TaskModel.Progress).(int)
+	//出现命名冲突 走默认覆盖
+	ctx := context.WithValue(context.Background(), fsctx.OnlyOverwrite, true)
+	//大于0判断已经下过一次了 带上唯一标识(这个标识理论上会一直存在于后面)
+	if job.TaskModel.Progress > 0 {
+		ctx = context.WithValue(ctx, fsctx.OtherId, time.Now().Unix())
+	}
 	//defer job.Recycle()
 	//task 目前都是顺序上传
 	util.Log().Info("user %d task %d do transfering... 从 第 %d 个 任务开始...", job.TaskModel.UserID, job.TaskModel.ID, LocalIndex)
+
+	//带上这次task 信息向后传
+	ctx = context.WithValue(ctx, fsctx.TaskInfo, job.TaskModel)
 	var isSlaveUpload = false
 	// todo:使用从机还是主机进行上传
 	if job.TaskProps.NodeID > 1 {
@@ -129,7 +139,8 @@ func (job *TransferTask) Do() {
 		// 获取从机节点
 		node := cluster.Default.GetNodeByID(job.TaskProps.NodeID)
 		if node == nil {
-			job.SetErrorMsg(fmt.Sprintf("指定了从机,但从机节点 %d 不可用,请检查自己配置的节点是否正确", job.TaskProps.NodeID), nil)
+			util.Log().Error("指定了从机,但从机节点 %d 不可用(或失活),此时的任务为:%d,请检查自己配置的节点是否正确", job.TaskProps.NodeID, job.TaskModel.ID)
+			job.SetErrorMsg(fmt.Sprintf("指定了从机,但从机节点 %d 不可用(或失活),请检查自己配置的节点是否正确", job.TaskProps.NodeID), nil)
 			return
 		}
 
@@ -140,10 +151,7 @@ func (job *TransferTask) Do() {
 		isSlaveUpload = true
 
 	}
-	//出现命名冲突 走默认覆盖
-	ctx := context.WithValue(context.Background(), fsctx.OnlyOverwrite, true)
-	//带上这次task 信息向后传
-	ctx = context.WithValue(ctx, fsctx.TaskInfo, job.TaskModel)
+
 	// 重点
 	//选取剩余任务(不让每次重启的时候都从头开始)
 	//总任务
@@ -183,10 +191,23 @@ func (job *TransferTask) Do() {
 			_end := time.Now().Unix()
 			//耗费的秒数
 			cost := util.If(_end-_start == 0, 0.0001, float64(_end-_start)).(float64)
-			_speed := util.ConvertSizeToString(float64(fileSize) / cost)
-			util.Log().Info("filesize: %s uploaded! cost: %g speed: %s /s", util.ConvertSizeToString(float64(fileSize)), cost, _speed)
+			_speed, _ := decimal.NewFromFloat(float64(fileSize) / cost).Round(2).Float64()
+			_speedstr := util.ConvertSizeToString(_speed)
+			util.Log().Info("filesize: %s uploaded! cost: %g speed: %s /s", util.ConvertSizeToString(float64(fileSize)), cost, _speedstr)
 			// 记录其他信息
-			job.SetOtherInfo(_speed, TotalTryCount)
+			job.SetOtherInfo(_speedstr, TotalTryCount)
+			// 如果 是从机 记录speed 如果发生错误 退出
+			if isSlaveUpload {
+				job.TaskModel.SetSpeed(_speed)
+				if err != nil {
+					util.Log().Error("从机任务 %d 转存出现错误 %s,此时为上传队列的第 %d 个,上传的文件是: %s", job.TaskModel.ID, err, LocalIndex+index, file)
+					job.SetErrorMsg("文件转存失败", err)
+					goto endFor
+				}
+				//否则继续下面的
+				break
+
+			}
 			//如果上传有问题
 			if err != nil {
 				util.Log().Error("任务 %d 转存出现错误 %s,此时为上传队列的第 %d 个,上传的文件是: %s", job.TaskModel.ID, err, LocalIndex+index, file)
@@ -221,9 +242,9 @@ func (job *TransferTask) Do() {
 		}
 	}
 endFor:
-	job.Recycle()
 	end := time.Now().Unix()
 	util.Log().Info("user: %d task: %d finished cost: %d s", job.TaskModel.UserID, job.TaskModel.ID, end-start)
+	job.Recycle()
 
 }
 
@@ -336,20 +357,27 @@ func (job *TransferTask) Recycle() bool {
 		util.Log().Error("任务 %d 转存结束:\n最后的错误为:\n%s,\n信息为:\n%s\n不回收临时文件", job.TaskModel.ID, job.Err.Error, job.Err.Msg)
 		return false
 	}
+	//主节点上传才删
+	if job.TaskProps.NodeID <= 0 {
+		//todo: 判断大小校验(暂时不校验(可能会有问题))
+		//if !job.JudgeSize() {
+		//	return false
+		//}
 
-	//todo: 判断大小校验(暂时不校验(可能会有问题))
-	//if !job.JudgeSize() {
-	//	return false
-	//}
-
-	util.Log().Info("任务 %d 转存完成...30s后回收临时文件", job.TaskModel.ID)
-	time.Sleep(time.Duration(30) * time.Second)
-	err := os.RemoveAll(job.TaskProps.Parent)
-	if err != nil {
-		util.Log().Warning("无法删除中转临时目录[%s], %s", job.TaskProps.Parent, err)
+		util.Log().Info("任务 %d 转存完成...30s后回收临时文件", job.TaskModel.ID)
+		time.Sleep(time.Duration(30) * time.Second)
+		err := os.RemoveAll(job.TaskProps.Parent)
+		if err != nil {
+			util.Log().Warning("无法删除中转临时目录[%s], %s", job.TaskProps.Parent, err)
+		} else {
+			util.Log().Info(" %s 回收成功!", job.TaskProps.Parent)
+		}
+		return true
+	} else {
+		util.Log().Info("任务 %d 转存结束,由于全程使用节点:%d 所以不回收临时目录", job.TaskModel.ID, job.TaskProps.NodeID)
 	}
-	return true
 
+	return true
 }
 
 // NewTransferTask 新建中转任务

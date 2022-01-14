@@ -65,6 +65,7 @@ func (service *AddURLService) Add(c *gin.Context, taskType int) serializer.Respo
 	// 创建任务
 	gid, err := node.GetAria2Instance().CreateTask(task, fs.User.Group.OptionsSerialized.Aria2Options)
 	if err != nil {
+		util.Log().Error("新建离线任务时发生错误:%s", err.Error())
 		return serializer.Err(serializer.CodeNotSet, "任务创建失败", err)
 	}
 

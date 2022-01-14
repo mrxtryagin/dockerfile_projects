@@ -2,6 +2,7 @@ package slavetask
 
 import (
 	"context"
+	"fmt"
 	model "github.com/cloudreve/Cloudreve/v3/models"
 	"github.com/cloudreve/Cloudreve/v3/pkg/cluster"
 	"github.com/cloudreve/Cloudreve/v3/pkg/filesystem"
@@ -11,6 +12,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v3/pkg/task"
 	"github.com/cloudreve/Cloudreve/v3/pkg/util"
 	"os"
+	"time"
 )
 
 // TransferTask 文件中转任务
@@ -66,7 +68,7 @@ func (job *TransferTask) SetErrorMsg(msg string, err error) {
 			Error: err.Error(),
 		},
 	}
-
+	util.Log().Info("即将发送错误信息给:%s", job.MasterID)
 	if err := cluster.DefaultController.SendNotification(job.MasterID, job.Req.Hash(job.MasterID), notifyMsg); err != nil {
 		util.Log().Warning("无法发送转存失败通知到从机, %s", err)
 	}
@@ -80,29 +82,41 @@ func (job *TransferTask) GetError() *task.JobError {
 // Do 开始执行任务
 func (job *TransferTask) Do() {
 	defer job.Recycle()
+	util.Log().Info("开始执行从机上传任务...")
 
 	fs, err := filesystem.NewAnonymousFileSystem()
 	if err != nil {
+		util.Log().Error("无法初始化匿名文件系统:%s", err.Error())
 		job.SetErrorMsg("无法初始化匿名文件系统", err)
 		return
 	}
 
 	fs.Policy = job.Req.Policy
 	if err := fs.DispatchHandler(); err != nil {
+		util.Log().Error("无法分发存储策略:%s", err.Error())
 		job.SetErrorMsg("无法分发存储策略", err)
 		return
 	}
 
 	master, err := cluster.DefaultController.GetMasterInfo(job.MasterID)
 	if err != nil {
+		util.Log().Error("找不到主机节点:%s", err.Error())
 		job.SetErrorMsg("找不到主机节点", err)
 		return
 	}
 
 	fs.SwitchToShadowHandler(master.Instance, master.URL.String(), master.ID)
-	ctx := context.WithValue(context.Background(), fsctx.DisableOverwrite, true)
+
+	//使用上传策略
+	//ctx := context.WithValue(context.Background(), fsctx.DisableOverwrite, true)
+	//出现命名冲突 走默认覆盖
+	ctx := context.WithValue(context.Background(), fsctx.OnlyOverwrite, true)
+	//带上这次task 信息向后传
+	ctx = context.WithValue(ctx, fsctx.SlaveInfo, job.Req)
+
 	file, err := os.Open(util.RelativePath(job.Req.Src))
 	if err != nil {
+		util.Log().Error("无法读取源文件:%s", err.Error())
 		job.SetErrorMsg("无法读取源文件", err)
 		return
 	}
@@ -112,16 +126,38 @@ func (job *TransferTask) Do() {
 	// 获取源文件大小
 	fi, err := file.Stat()
 	if err != nil {
+		util.Log().Error("无法获取源文件大小:%s", err.Error())
 		job.SetErrorMsg("无法获取源文件大小", err)
 		return
 	}
 
 	size := fi.Size()
+	var RetryMax = 15
+	for j := 1; j <= RetryMax+1; j++ {
+		err = fs.Handler.Put(ctx, file, job.Req.Dst, uint64(size))
+		if err != nil {
+			util.Log().Error("%s --> %s,文件上传失败:%s", job.Req.Src, job.Req.Dst, err.Error())
 
-	err = fs.Handler.Put(ctx, file, job.Req.Dst, uint64(size))
-	if err != nil {
-		job.SetErrorMsg("文件上传失败", err)
-		return
+		} else {
+			//成功则变为空
+			err = nil
+			break
+		}
+		if j <= RetryMax {
+			//停止10秒
+			time.Sleep(time.Duration(10) * time.Second)
+			util.Log().Warning("%s --> %s,重试中: %d/%d", job.Req.Src, job.Req.Dst, j, RetryMax)
+			//修复错误和信息
+			//job.Err.Error = ""
+			//job.Err.Msg = ""
+			err = nil
+
+		}
+		//最后一次重试
+		if j == RetryMax+1 {
+			job.SetErrorMsg(fmt.Sprintf("上传文件 %s --> %s 的过程中发生错误", job.Req.Src, job.Req.Dst), err)
+			return
+		}
 	}
 
 	msg := mq.Message{
@@ -137,8 +173,18 @@ func (job *TransferTask) Do() {
 
 // Recycle 回收临时文件
 func (job *TransferTask) Recycle() {
+	//新增错误判断
+	if job.Err != nil {
+		util.Log().Error("任务 %s --> %s 转存过程中出现错误:\n%s,\n信息为:\n%s\n不回收临时文件", job.Req.Src, job.Req.Dst, job.Err.Error, job.Err.Msg)
+		return
+	}
+
+	util.Log().Info("任务 %s --> %s 转存结束:10s后即将回收临时文件", job.Req.Src, job.Req.Dst)
+	time.Sleep(time.Duration(10) * time.Second)
 	err := os.Remove(job.Req.Src)
 	if err != nil {
 		util.Log().Warning("无法删除中转临时文件[%s], %s", job.Req.Src, err)
+	} else {
+		util.Log().Info("%s 回收成功!", job.Req.Src)
 	}
 }

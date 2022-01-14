@@ -80,6 +80,7 @@ func (c HTTPClient) Request(method, target string, body io.Reader, opts ...Optio
 		req *http.Request
 		err error
 	)
+	//httputil.DumpRequest(req, true)
 	if options.ctx != nil {
 		req, err = http.NewRequestWithContext(options.ctx, method, target, body)
 	} else {
@@ -121,9 +122,14 @@ func (c HTTPClient) Request(method, target string, body io.Reader, opts ...Optio
 			}
 		}
 	}
+	//打印头部
+	//util.Log().Info("请求头为:%v", req.Header)
+	//util.Log().Info("url为:%s", req.URL.String())
 
 	// 发送请求
 	resp, err := client.Do(req)
+
+	//req.Close = true
 	if err != nil {
 		return &Response{Err: err}
 	}

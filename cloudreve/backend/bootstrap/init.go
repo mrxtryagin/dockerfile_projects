@@ -12,6 +12,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v3/pkg/email"
 	"github.com/cloudreve/Cloudreve/v3/pkg/mq"
 	"github.com/cloudreve/Cloudreve/v3/pkg/task"
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,6 +46,17 @@ func Init(path string) {
 			"master",
 			func() {
 				model.Init()
+			},
+		},
+		{
+			"slave",
+			func() {
+				//slave 也初始化数据库
+				if conf.SlaveConfig.SlaveDB {
+					util.Log().Info("slave 模式下使用数据库")
+					model.Init()
+				}
+
 			},
 		},
 		{
@@ -84,6 +96,7 @@ func Init(path string) {
 
 			},
 		},
+
 		{
 			"slave",
 			func() {
