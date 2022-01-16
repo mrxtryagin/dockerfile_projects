@@ -13,6 +13,7 @@ import (
 	"github.com/cloudreve/Cloudreve/v3/pkg/mq"
 	"github.com/cloudreve/Cloudreve/v3/pkg/request"
 	"github.com/cloudreve/Cloudreve/v3/pkg/serializer"
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
 	"io"
 	"net/url"
 	"time"
@@ -67,7 +68,7 @@ func (d *Driver) Put(ctx context.Context, file io.ReadCloser, dst string, size u
 		task = ctx.Value(fsctx.TaskInfo).(*model.Task)
 		req.TaskId = task.ID
 	}
-	//其他标识id
+	//其他标识id(重新上传任务时有用)
 	if ctx.Value(fsctx.OtherId) != nil {
 		otherId := ctx.Value(fsctx.OtherId).(int64)
 		req.OtherId = otherId
@@ -97,6 +98,7 @@ func (d *Driver) Put(ctx context.Context, file io.ReadCloser, dst string, size u
 	waitTimeout := model.GetIntSetting("slave_transfer_timeout", 172800)
 	select {
 	case <-time.After(time.Duration(waitTimeout) * time.Second):
+		util.Log().Error("中转超时: %d s 可能需要重试", waitTimeout)
 		return ErrWaitResultTimeout
 	case msg := <-resChan:
 		if msg.Event != serializer.SlaveTransferSuccess {

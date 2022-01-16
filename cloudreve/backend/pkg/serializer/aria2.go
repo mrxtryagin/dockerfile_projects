@@ -22,6 +22,8 @@ type DownloadListResponse struct {
 	Downloaded     uint64         `json:"downloaded"`
 	Speed          int            `json:"speed"`
 	Info           rpc.StatusInfo `json:"info"`
+	NodeId         uint           `json:"nodeId""`
+	GID            string         `json:"gid"`
 }
 
 // FinishedListResponse 已完成任务条目
@@ -61,6 +63,7 @@ func BuildFinishedListResponse(tasks []model.Download) Response {
 		// 过滤敏感信息 去掉dir 之后的 task 信息
 		for i2 := 0; i2 < len(tasks[i].StatusInfo.Files); i2++ {
 			tasks[i].StatusInfo.Files[i2].Path = strings.ReplaceAll(tasks[i].StatusInfo.Files[i2].Path, tasks[i].StatusInfo.Dir, "")
+
 		}
 
 		download := FinishedListResponse{
@@ -135,6 +138,8 @@ func BuildDownloadingResponse(tasks []model.Download, intervals map[uint]int) Re
 			Downloaded:     tasks[i].DownloadedSize,
 			Speed:          tasks[i].Speed,
 			Info:           tasks[i].StatusInfo,
+			NodeId:         tasks[i].NodeID, //带上节点信息
+			GID:            tasks[i].GID,
 		})
 	}
 

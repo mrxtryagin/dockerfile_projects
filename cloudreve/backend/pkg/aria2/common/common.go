@@ -22,6 +22,11 @@ type Aria2 interface {
 	GetConfig() model.Aria2Option
 	// 删除临时下载文件
 	DeleteTempFile(*model.Download) error
+	//开启下载
+	Start(task *model.Download) error
+
+	//暂停下载
+	Pause(task *model.Download) error
 }
 
 const (
@@ -78,6 +83,10 @@ func (instance *DummyAria2) Cancel(task *model.Download) error {
 	return ErrNotEnabled
 }
 
+func (instance *DummyAria2) ReloadTask(task *model.Download, options map[string]interface{}) error {
+	return ErrNotEnabled
+}
+
 // Select 返回未开启错误
 func (instance *DummyAria2) Select(task *model.Download, files []int) error {
 	return ErrNotEnabled
@@ -90,6 +99,14 @@ func (instance *DummyAria2) GetConfig() model.Aria2Option {
 
 // GetConfig 返回空的
 func (instance *DummyAria2) DeleteTempFile(src *model.Download) error {
+	return ErrNotEnabled
+}
+
+func (instance *DummyAria2) Start(src *model.Download) error {
+	return ErrNotEnabled
+}
+
+func (instance *DummyAria2) Pause(src *model.Download) error {
 	return ErrNotEnabled
 }
 

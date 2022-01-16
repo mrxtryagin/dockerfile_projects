@@ -102,6 +102,10 @@ func InitSlaveRouter() *gin.Engine {
 			aria2.POST("select", controllers.SlaveSelectTask)
 			// 删除任务临时文件
 			aria2.POST("delete", controllers.SlaveDeleteTempFile)
+			// 删除任务临时文件
+			aria2.POST("start", controllers.SlaveStart)
+			// 删除任务临时文件
+			aria2.POST("pause", controllers.SlavePause)
 		}
 
 		// 异步任务
@@ -579,6 +583,12 @@ func InitMasterRouter() *gin.Engine {
 				aria2.PUT("select/:gid", controllers.SelectAria2File)
 				// 取消或删除下载任务
 				aria2.DELETE("task/:gid", controllers.CancelAria2Download)
+				// 仅删除
+				aria2.GET("onlyDelete/:gid", controllers.OnlyDeleteAria2Download)
+				// 开启
+				aria2.GET("start/:gid", controllers.StartAria2Download)
+				// 开启
+				aria2.GET("pause/:gid", controllers.PauseAria2Download)
 				// 获取正在下载中的任务
 				aria2.GET("downloading", controllers.ListDownloading)
 				// 获取已完成的任务

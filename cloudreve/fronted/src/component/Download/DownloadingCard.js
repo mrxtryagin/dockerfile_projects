@@ -198,7 +198,7 @@ export default function DownloadingCard(props) {
     const [loading, setLoading] = React.useState(false);
     const [selectDialogOpen, setSelectDialogOpen] = React.useState(false);
     const [selectFileOption, setSelectFileOption] = React.useState([]);
-    const [isStart, setIsStart] = React.useState(task.info.status === "paused");
+    const [isStart, setIsStart] = React.useState(task.info.status === "active");
 
     const [page, setPage] = React.useState(false);
     const [uploadDownloadeds, setUploadDownloadeds] = React.useState([]);
@@ -206,6 +206,9 @@ export default function DownloadingCard(props) {
     const [isOpenUploadDialog, setIsOpenUploadDialog] = React.useState(false);
 
     const getSelected = useCallback(() => {
+        if(task || task.info || task.info.files){
+            return [0,[]]
+        }
         const filtered = task.info.files.filter((v) => v.selected === "true");
         return [filtered.length, filtered];
     }, [task.info.files]);
@@ -445,11 +448,22 @@ export default function DownloadingCard(props) {
 
 
     const pause = () => {
-        _aria_op("forcePause", [task.info.gid]).then(() => {
-            setIsStart(true);
-            setLoading(false);
-
-        });
+        setLoading(true)
+        API.get("/aria2/pause/" + task.info.gid).then(() => {
+            ToggleSnackbar(
+                "top",
+                "right",
+                "暂停成功，状态会在稍后更新",
+                "success"
+            );
+            setIsStart(false);
+        })
+            .catch((error) => {
+                ToggleSnackbar("top", "right", error.message, "error");
+            })
+            .finally(() => {
+                setLoading(false);
+            });
 
     };
 
@@ -503,11 +517,23 @@ export default function DownloadingCard(props) {
     };
 
     const start = () => {
-        _aria_op("unpause", [task.info.gid]).then(() => {
-            setIsStart(false);
-            setLoading(false);
+        setLoading(true)
+        API.get("/aria2/start/" + task.info.gid).then(() => {
+            ToggleSnackbar(
+                "top",
+                "right",
+                "开启成功，状态会在稍后更新",
+                "success"
+            );
+            setIsStart(true);
+        })
+        .catch((error) => {
+            ToggleSnackbar("top", "right", error.message, "error");
+        })
+        .finally(() => {
 
-        });
+            setLoading(false);
+            });
     };
 
 
@@ -556,6 +582,7 @@ export default function DownloadingCard(props) {
     };
 
     const openUploadDialog = () => {
+        if(task || task.info || task.info.files)return
         const task_mod = task.info.files.filter(el => el.selected === "true" && (el.completedLength === el.length));
         console.log("task_mod", task_mod);
         setUploadDownloadeds(task_mod);
@@ -879,7 +906,7 @@ export default function DownloadingCard(props) {
                             <IconButton
                                 className={classes.actionButton}
                                 onClick={start}
-                                disabled={loading || !isStart}
+                                disabled={loading || isStart }
                                 title="开始"
                                 size="small"
                             >
@@ -889,7 +916,7 @@ export default function DownloadingCard(props) {
                                 className={classes.actionButton}
                                 onClick={pause}
 
-                                disabled={loading || isStart}
+                                disabled={loading || !isStart}
                                 title="暂停"
                                 size="small"
                             >

@@ -172,7 +172,7 @@ func GetDownloadJoinTask(taskStatus []int, downloadStatus []int, page, uid uint)
 	}
 
 	dbChain.Joins(" left JOIN tasks on tasks.id=downloads.task_id").
-		Where("downloads.status in (?) and downloads.user_id = ? and tasks.deleted_at is Null and tasks.user_id = ?", downloadStatus, uid, uid).
+		Where("downloads.status in (?) and downloads.user_id = ? and tasks.deleted_at is Null ", downloadStatus, uid).
 		Scopes(taskStatusFunc).Find(&tasks)
 	return tasks
 }

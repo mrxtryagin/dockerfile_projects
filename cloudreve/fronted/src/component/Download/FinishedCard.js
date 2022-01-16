@@ -45,7 +45,7 @@ import Checkbox from "@material-ui/core/Checkbox";
 import SpeedIcon from "@material-ui/icons/Speed";
 import HourglassEmptyIcon from "@material-ui/icons/HourglassEmpty";
 import WarningIcon from "@material-ui/icons/Warning";
-
+import RestoreIcon from "@material-ui/icons/Restore";
 
 const ExpansionPanel = withStyles({
     root: {
@@ -220,7 +220,7 @@ export default function FinishedCard(props) {
             .catch((error) => {
                 ToggleSnackbar("top", "right", error.message, "error");
             })
-            .then(() => {
+            .finally(() => {
                 setLoading(false);
             });
     };
@@ -230,7 +230,7 @@ export default function FinishedCard(props) {
         setLoading(true);
         API.get("/aria2/reDownload/" + props.task.task_id)
             .then(() => {
-                ToggleSnackbar("top", "right", "恢复下载成功", "success");
+                ToggleSnackbar("top", "right", "恢复中转任务成功", "success");
 
             }).then(() => {
             props.reload.loadFinishes();
@@ -307,7 +307,7 @@ export default function FinishedCard(props) {
                         ToggleSnackbar(
                             "top",
                             "right",
-                            "任务已重建",
+                            "重新下载任务",
                             "success"
                         );
                         setLoading(false);
@@ -328,6 +328,41 @@ export default function FinishedCard(props) {
                 ToggleSnackbar("top", "right", error.message, "error");
             });
 
+
+    };
+
+    // 恢复下载
+    const recoverDownload = () => {
+        setLoading(true);
+        API.post("/aria2/url", {
+            url: props.task.source,
+            dst: props.task.dst,
+            gid: props.task.gid
+        })
+            .then(() => {
+                ToggleSnackbar(
+                    "top",
+                    "right",
+                    "恢复下载成功",
+                    "success"
+                );
+                // window.location.reload()
+            }).catch((error) => {
+            ToggleSnackbar(
+                "top",
+                "right",
+                error.message,
+                "error"
+            );
+
+        }).then(() => {
+            API.get("/aria2/onlyDelete/" + props.task.gid).then((data)=>{
+                return data
+            }).finally(() => {
+                updateStatus();
+                setLoading(false);
+            });
+        })
 
     };
 
@@ -726,9 +761,9 @@ export default function FinishedCard(props) {
                             onClick={() => {
                                 history.push("/home?path=" +
                                     // encodeURIComponent(props.task.dst + (props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ? (props.task.mode === "multi" ? "/" + props.task.name : "") : "")));
-                                //如果转存完成 或者 出错但是错误是已有同名文件存在 则可以给完成路径名 否则 只给dst
-                                encodeURIComponent(props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ?
-                                    (props.task.mode === "multi" ? (props.task.dst.endsWith("/") ? props.task.dst + props.task.name : props.task.dst + "/" + props.task.name) : props.task.dst) : props.task.dst))
+                                    //如果转存完成 或者 出错但是错误是已有同名文件存在 则可以给完成路径名 否则 只给dst
+                                    encodeURIComponent(props.task.task_status === 4 || props.task.task_error.indexOf("The specified item name already exists.") !== -1 ?
+                                        (props.task.mode === "multi" ? (props.task.dst.endsWith("/") ? props.task.dst + props.task.name : props.task.dst + "/" + props.task.name) : props.task.dst) : props.task.dst));
                             }
                             }
                             title={"打开存放目录"}
@@ -739,6 +774,17 @@ export default function FinishedCard(props) {
                             <FolderOpenIcon />
                         </IconButton>
 
+                        {(props.task.status === 3 || props.task.status === 5) && (  //下载状态为 3 或者 5 的时候 尝试恢复下载
+                            <IconButton
+                                className={classes.actionButton}
+                                onClick={recoverDownload}
+                                disabled={loading} //loading
+                                title={"尝试恢复下载"}
+                                size="small"
+                            >
+                                <RestoreIcon />
+                            </IconButton>)
+                        }
                         <IconButton
                             id={"end" + props.index}
                             className={classes.actionButton}
@@ -765,7 +811,7 @@ export default function FinishedCard(props) {
                                     props.task.name, "已成功复制文件名到剪切板"
                                 )
                             }
-                            title="复制"
+                            title="复制文件名"
                             size="small"
                         >
                             <FileCopyIcon />
@@ -844,10 +890,10 @@ export default function FinishedCard(props) {
                                                 className={classes.copy}
                                                 onClick={() =>
                                                     copyToClipboard(
-                                                        props.task.source, "已成功复制原始连接到剪切板"
+                                                        props.task.source, "已成功复制原始链接到剪切板"
                                                     )
                                                 }
-                                                title="复制"
+                                                title="复制原始链接"
                                                 size="small"
                                             >
                                                 <FileCopyIcon />

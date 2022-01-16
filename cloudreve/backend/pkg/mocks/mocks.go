@@ -1,6 +1,7 @@
 package mocks
 
 import (
+	"errors"
 	model "github.com/cloudreve/Cloudreve/v3/models"
 	"github.com/cloudreve/Cloudreve/v3/pkg/aria2/common"
 	"github.com/cloudreve/Cloudreve/v3/pkg/aria2/rpc"
@@ -138,6 +139,20 @@ func (a Aria2Mock) GetConfig() model.Aria2Option {
 func (a Aria2Mock) DeleteTempFile(download *model.Download) error {
 	args := a.Called(download)
 	return args.Error(0)
+}
+
+func (a Aria2Mock) Start(download *model.Download) error {
+	args := a.Called(download)
+	return args.Error(0)
+}
+
+func (a Aria2Mock) Pause(download *model.Download) error {
+	args := a.Called(download)
+	return args.Error(0)
+}
+
+func (a Aria2Mock) ReloadTask(task *model.Download, options map[string]interface{}) error {
+	return errors.New("mock")
 }
 
 type TaskPoolMock struct {

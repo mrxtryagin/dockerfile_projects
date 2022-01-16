@@ -179,11 +179,14 @@ func (pool *NodePool) BalanceNodeByFeature(feature string, lb balancer.Balancer)
 	pool.lock.RLock()
 	defer pool.lock.RUnlock()
 	if nodes, ok := pool.featureMap[feature]; ok {
-		err, res := lb.NextPeer(nodes)
+		//选择节点
+		newNodes := choiceNodes(nodes)
+		//nodes  为节点数组
+		err, res := lb.NextPeer(newNodes)
 		if err == nil {
 			node := res.(Node)
 			nodeObj := node.DBModel()
-			util.Log().Info("本次选中的节点为: %d 名为: %s", nodeObj.ID, nodeObj.Name)
+			util.Log().Info("本次选中的节点ID为: %d 名为: %s", nodeObj.ID, nodeObj.Name)
 			return nil, node
 		}
 
@@ -191,4 +194,30 @@ func (pool *NodePool) BalanceNodeByFeature(feature string, lb balancer.Balancer)
 	}
 
 	return ErrFeatureNotExist, nil
+}
+
+//避免主节点
+func choiceNodes(nodes []Node) []Node {
+	//如果只有一个也没得选了
+	if len(nodes) <= 1 {
+		return nodes
+	}
+	newNodes := make([]Node, 0)
+	masterNodes := make([]Node, 0)
+	//如果不止一个 优先选择非主的
+	for _, node := range nodes {
+		if !node.IsMater() {
+			//如果不是主
+			newNodes = append(newNodes, node)
+		} else {
+			//如果是主
+			masterNodes = append(masterNodes, node)
+		}
+	}
+	if len(newNodes) > 0 {
+		return newNodes
+	} else {
+		util.Log().Info("迫不得已 继续使用 主节点...")
+		return masterNodes
+	}
 }

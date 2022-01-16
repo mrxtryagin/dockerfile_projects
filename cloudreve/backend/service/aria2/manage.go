@@ -65,6 +65,7 @@ func (service *DownloadListService) Downloading(c *gin.Context, user *model.User
 	// 查找下载记录
 	downloads := model.GetDownloadsByStatusAndUser(service.Page, user.ID, common.Downloading, common.Paused, common.Ready)
 	intervals := make(map[uint]int)
+	//增加interval
 	for _, download := range downloads {
 		if _, ok := intervals[download.ID]; !ok {
 			if node := cluster.Default.GetNodeByID(download.GetNodeID()); node != nil {
@@ -86,7 +87,7 @@ func (service *DownloadTaskService) Delete(c *gin.Context) serializer.Response {
 	if err != nil {
 		return serializer.Err(serializer.CodeNotFound, "下载记录不存在", err)
 	}
-
+	// 删除任务,取消记录
 	if download.Status >= common.Error {
 		// 如果任务已完成，则删除任务记录
 		if err := download.Delete(); err != nil {
@@ -102,6 +103,70 @@ func (service *DownloadTaskService) Delete(c *gin.Context) serializer.Response {
 	}
 
 	if err := node.GetAria2Instance().Cancel(download); err != nil {
+		return serializer.Err(serializer.CodeNotSet, "操作失败", err)
+	}
+
+	return serializer.Response{}
+}
+
+// OnlyDelete 仅删除
+func (service *DownloadTaskService) OnlyDelete(c *gin.Context) serializer.Response {
+	userCtx, _ := c.Get("user")
+	user := userCtx.(*model.User)
+
+	// 查找下载记录
+	download, err := model.GetDownloadByGid(c.Param("gid"), user.ID)
+	if err != nil {
+		return serializer.Err(serializer.CodeNotFound, "下载记录不存在", err)
+	}
+	// 删除任务,取消记录
+	if err := download.Delete(); err != nil {
+		return serializer.Err(serializer.CodeDBError, "任务记录删除失败", err)
+	}
+
+	return serializer.Response{}
+}
+
+// Start 开启下载任务
+func (service *DownloadTaskService) Start(c *gin.Context) serializer.Response {
+	userCtx, _ := c.Get("user")
+	user := userCtx.(*model.User)
+
+	// 查找下载记录
+	download, err := model.GetDownloadByGid(c.Param("gid"), user.ID)
+	if err != nil {
+		return serializer.Err(serializer.CodeNotFound, "下载记录不存在", err)
+	}
+
+	node := cluster.Default.GetNodeByID(download.GetNodeID())
+	if node == nil {
+		return serializer.Err(serializer.CodeInternalSetting, "目标节点不可用", err)
+	}
+
+	if err := node.GetAria2Instance().Start(download); err != nil {
+		return serializer.Err(serializer.CodeNotSet, "操作失败", err)
+	}
+
+	return serializer.Response{}
+}
+
+// Pause 暂停下载任务
+func (service *DownloadTaskService) Pause(c *gin.Context) serializer.Response {
+	userCtx, _ := c.Get("user")
+	user := userCtx.(*model.User)
+
+	// 查找下载记录
+	download, err := model.GetDownloadByGid(c.Param("gid"), user.ID)
+	if err != nil {
+		return serializer.Err(serializer.CodeNotFound, "下载记录不存在", err)
+	}
+
+	node := cluster.Default.GetNodeByID(download.GetNodeID())
+	if node == nil {
+		return serializer.Err(serializer.CodeInternalSetting, "目标节点不可用", err)
+	}
+
+	if err := node.GetAria2Instance().Pause(download); err != nil {
 		return serializer.Err(serializer.CodeNotSet, "操作失败", err)
 	}
 
@@ -152,6 +217,7 @@ func SlaveStatus(c *gin.Context, service *serializer.SlaveAria2Call) serializer.
 	// 查询任务
 	status, err := caller.(common.Aria2).Status(service.Task)
 	if err != nil {
+		util.Log().Error("离线下载任务查询失败:%s", err.Error())
 		return serializer.Err(serializer.CodeInternalSetting, "离线下载任务查询失败", err)
 	}
 
@@ -195,6 +261,34 @@ func SlaveDeleteTemp(c *gin.Context, service *serializer.SlaveAria2Call) seriali
 	err := caller.(common.Aria2).DeleteTempFile(service.Task)
 	if err != nil {
 		return serializer.Err(serializer.CodeInternalSetting, "临时文件删除失败", err)
+	}
+
+	return serializer.Response{}
+
+}
+
+// SlaveStart 取消从机离线下载任务
+func SlaveStart(c *gin.Context, service *serializer.SlaveAria2Call) serializer.Response {
+	caller, _ := c.Get("MasterAria2Instance")
+
+	// 查询任务
+	err := caller.(common.Aria2).Start(service.Task)
+	if err != nil {
+		return serializer.Err(serializer.CodeInternalSetting, "任务开启失败", err)
+	}
+
+	return serializer.Response{}
+
+}
+
+// SlaveStart 取消从机离线下载任务
+func SlavePause(c *gin.Context, service *serializer.SlaveAria2Call) serializer.Response {
+	caller, _ := c.Get("MasterAria2Instance")
+
+	// 查询任务
+	err := caller.(common.Aria2).Pause(service.Task)
+	if err != nil {
+		return serializer.Err(serializer.CodeInternalSetting, "任务强制暂停失败", err)
 	}
 
 	return serializer.Response{}

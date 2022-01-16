@@ -189,6 +189,38 @@ func (r *rpcService) Init() error {
 
 func (r *rpcService) CreateTask(task *model.Download, groupOptions map[string]interface{}) (string, error) {
 	r.parent.lock.RLock()
+	// 看看目前该gid 是什么状态
+	gid := task.GID
+	if gid != "" {
+		tryMax := 2
+		//如果任务gid 不为""的时候 基本可以确认这个时候任务可能存在
+		var err error
+		var info rpc.StatusInfo
+		for i := 0; i < tryMax; i++ {
+			info, err = r.Caller.TellStatus(task.GID)
+			time.Sleep(time.Second * 1) //休息1s
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			//如果出现错误 直接跳过 不进行
+			util.Log().Error("在查询 aria2任务gid 为 %s 的时候出现错误:%s,走正常逻辑", task.GID, err)
+		} else {
+			//如果没有错误 说明gid 是有状态的 直接返回就ok
+			util.Log().Info("download 任务 在创建任务的过程中 发现原GID:%s 已经存在在aria2系统中,状态为 %s...", gid, info.Status)
+			switch info.Status {
+			case "complete", "active", "waiting", "paused":
+				return gid, nil
+			default:
+				util.Log().Info("下载任务 状态 未命中可恢复状态,直接重新开始...")
+			}
+
+		}
+	}
+	r.parent.lock.RUnlock()
+
+	r.parent.lock.RLock()
 	// 生成存储路径
 	guid, _ := uuid.NewV4()
 	path := filepath.Join(
@@ -240,6 +272,26 @@ func (r *rpcService) Cancel(task *model.Download) error {
 	return err
 }
 
+func (r *rpcService) Start(task *model.Download) error {
+	util.Log().Info("开启下载任务 GID :%s", task.GID)
+	_, err := r.Caller.Unpause(task.GID)
+	if err != nil {
+		util.Log().Warning("无法开启离线下载任务[%s], %s", task.GID, err)
+	}
+
+	return err
+}
+
+func (r *rpcService) Pause(task *model.Download) error {
+	util.Log().Info("强制暂停下载任务 GID :%s", task.GID)
+	_, err := r.Caller.ForcePause(task.GID)
+	if err != nil {
+		util.Log().Warning("无法强制暂停离线下载任务[%s], %s", task.GID, err)
+	}
+
+	return err
+}
+
 func (r *rpcService) Select(task *model.Download, files []int) error {
 	var selected = make([]string, len(files))
 	for i := 0; i < len(files); i++ {
@@ -270,4 +322,44 @@ func (s *rpcService) DeleteTempFile(task *model.Download) error {
 	}(s.deletePaddingDuration, task.Parent)
 
 	return nil
+}
+
+func (r *rpcService) ReloadTask(task *model.Download, groupOptions map[string]interface{}) (string, error) {
+	// 看看目前该gid 是什么状态
+	//gid := task.GID
+	//if gid != "" {
+	//	//如果任务gid 不为""的时候 基本可以确认这个时候任务可能存在
+	//	status, err := r.Caller.TellStatus(task.GID)
+	//	if err != nil {
+	//		//如果出现错误 直接跳过 不进行
+	//		util.Log().Error("在查询 aria2任务gid 为 %s 的时候出现错误:%s,走正常逻辑",task.GID,)
+	//	}
+	//}
+	r.parent.lock.RLock()
+	// 生成存储路径
+	guid, _ := uuid.NewV4()
+	path := filepath.Join(
+		r.parent.Model.Aria2OptionsSerialized.TempPath,
+		"aria2",
+		guid.String(),
+	)
+	r.parent.lock.RUnlock()
+
+	// 创建下载任务
+	options := map[string]interface{}{
+		"dir": path,
+	}
+	for k, v := range r.options.Options {
+		options[k] = v
+	}
+	for k, v := range groupOptions {
+		options[k] = v
+	}
+
+	gid, err := r.Caller.AddURI(task.Source, options)
+	if err != nil || gid == "" {
+		return "", err
+	}
+
+	return gid, nil
 }

@@ -70,7 +70,13 @@ func (job *TransferTask) SetErrorMsg(msg string, err error) {
 	}
 	util.Log().Info("即将发送错误信息给:%s", job.MasterID)
 	if err := cluster.DefaultController.SendNotification(job.MasterID, job.Req.Hash(job.MasterID), notifyMsg); err != nil {
-		util.Log().Warning("无法发送转存失败通知到从机, %s", err)
+		//错误的错误
+		jobErrErr := &task.JobError{
+			Msg:   "无法发送转存失败通知到从机",
+			Error: err.Error(),
+		}
+		job.SetError(jobErrErr)
+		util.Log().Error("无法发送转存失败通知到从机, %s", err)
 	}
 }
 
@@ -167,6 +173,13 @@ func (job *TransferTask) Do() {
 	}
 
 	if err := cluster.DefaultController.SendNotification(job.MasterID, job.Req.Hash(job.MasterID), msg); err != nil {
+		//确保从机接收到主机的消息之后 再进行回收,避免从机回收了,但是主机还没响应的情况
+		//错误的错误
+		jobErrErr := &task.JobError{
+			Msg:   fmt.Sprintf("上传文件 %s --> %s 的过程中发生错误,无法发送转存成功通知到从机", job.Req.Src, job.Req.Dst),
+			Error: err.Error(),
+		}
+		job.SetError(jobErrErr)
 		util.Log().Warning("无法发送转存成功通知到从机, %s", err)
 	}
 }

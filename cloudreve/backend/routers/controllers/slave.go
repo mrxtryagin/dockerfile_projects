@@ -279,3 +279,25 @@ func SlaveDeleteTempFile(c *gin.Context) {
 		c.JSON(200, ErrorResponse(err))
 	}
 }
+
+// SlaveStart 从机开始
+func SlaveStart(c *gin.Context) {
+	var service serializer.SlaveAria2Call
+	if err := c.ShouldBindJSON(&service); err == nil {
+		res := aria2.SlaveStart(c, &service)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
+// SlavePause 从机暂停
+func SlavePause(c *gin.Context) {
+	var service serializer.SlaveAria2Call
+	if err := c.ShouldBindJSON(&service); err == nil {
+		res := aria2.SlavePause(c, &service)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}

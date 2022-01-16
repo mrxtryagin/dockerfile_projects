@@ -74,6 +74,39 @@ func CancelAria2Download(c *gin.Context) {
 	}
 }
 
+//OnlyDeleteAria2Download 仅删除
+func OnlyDeleteAria2Download(c *gin.Context) {
+	var selectService aria2.DownloadTaskService
+	if err := c.ShouldBindUri(&selectService); err == nil {
+		res := selectService.OnlyDelete(c)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
+//StartAria2Download 开启
+func StartAria2Download(c *gin.Context) {
+	var selectService aria2.DownloadTaskService
+	if err := c.ShouldBindUri(&selectService); err == nil {
+		res := selectService.Start(c)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
+//PauseAria2Download 暂停
+func PauseAria2Download(c *gin.Context) {
+	var selectService aria2.DownloadTaskService
+	if err := c.ShouldBindUri(&selectService); err == nil {
+		res := selectService.Pause(c)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
 // ListDownloading 获取正在下载中的任务
 func ListDownloading(c *gin.Context) {
 	var service aria2.DownloadListService
@@ -97,7 +130,7 @@ func ListFinished(c *gin.Context) {
 }
 
 //ReDownloadTask 重新开始某个任务
-func ReDownloadTask(c *gin.Context){
+func ReDownloadTask(c *gin.Context) {
 	var service aria2.ReloadTaskService
 	if err := c.ShouldBindQuery(&service); err == nil {
 		res := service.ReLoadTask(c)

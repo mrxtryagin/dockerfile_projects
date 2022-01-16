@@ -29,6 +29,7 @@ var Lock sync.RWMutex
 func GetLoadBalancer() balancer.Balancer {
 	Lock.RLock()
 	defer Lock.RUnlock()
+	//这个LB 可能以后会变调
 	return LB
 }
 

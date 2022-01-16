@@ -30,7 +30,8 @@ type Monitor struct {
 	retried  int
 }
 
-var MAX_RETRY = 10
+//监控重试
+var MAX_RETRY = 20
 
 // NewMonitor 新建离线下载状态监控
 func NewMonitor(task *model.Download, pool cluster.Pool, mqClient mq.MQ) {
@@ -78,11 +79,11 @@ func (monitor *Monitor) Update() bool {
 
 	if err != nil {
 		monitor.retried++
-		util.Log().Warning("无法获取下载任务[%s]的状态，%s", monitor.Task.GID, err)
+		util.Log().Warning("无法获取下载任务[%s]的状态，%s 重试:%d", monitor.Task.GID, err, monitor.retried)
 
-		// 十次重试后认定为任务失败
+		// MAX_RETRY重试后认定为任务失败
 		if monitor.retried > MAX_RETRY {
-			util.Log().Warning("无法获取下载任务[%s]的状态，超过最大重试次数限制，%s", monitor.Task.GID, err)
+			util.Log().Warning("无法获取下载任务[%s]的状态，超过最大重试次数限制 %d，%s", monitor.Task.GID, MAX_RETRY, err)
 			monitor.setErrorStatus(err)
 			monitor.RemoveTempFolder()
 			return true
@@ -94,7 +95,7 @@ func (monitor *Monitor) Update() bool {
 
 	// 磁力链下载需要跟随
 	if len(status.FollowedBy) > 0 {
-		util.Log().Debug("离线下载[%s]重定向至[%s]", monitor.Task.GID, status.FollowedBy[0])
+		util.Log().Info("离线下载[%s]重定向至[%s]", monitor.Task.GID, status.FollowedBy[0])
 		monitor.Task.GID = status.FollowedBy[0]
 		monitor.Task.Save()
 		return false
@@ -167,6 +168,7 @@ func (monitor *Monitor) UpdateTaskInfo(status rpc.StatusInfo) error {
 		// 文件大小更新后，对文件限制等进行校验
 		if err := monitor.ValidateFile(); err != nil {
 			// 验证失败时取消任务
+			util.Log().Info("文件大小限制验证失败...,即将取消任务")
 			monitor.node.GetAria2Instance().Cancel(monitor.Task)
 			return err
 		}
@@ -221,6 +223,7 @@ func (monitor *Monitor) ValidateFile() error {
 
 // Error 任务下载出错处理，返回是否中断监控
 func (monitor *Monitor) Error(status rpc.StatusInfo) bool {
+	util.Log().Error("监控到 gid %s 发生了错误 %s ErrorCode %s,监控周期停止", status.Gid, status.ErrorMessage, status.ErrorCode)
 	monitor.setErrorStatus(errors.New(status.ErrorMessage))
 
 	// 清理临时文件

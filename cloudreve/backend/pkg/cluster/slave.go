@@ -282,7 +282,7 @@ func (s *slaveCaller) Init() error {
 }
 
 var (
-	slaveRecoverInterval = model.GetIntSetting("slave_recover_interval", 600)
+	slaveApiTimeOut = model.GetIntSetting("slave_api_timeout", 86400) //默认一天
 )
 
 // SendAria2Call send remote aria2 call to slave node
@@ -299,10 +299,10 @@ func (s *slaveCaller) SendAria2Call(body *serializer.SlaveAria2Call, scope strin
 		"POST",
 		"aria2/"+scope,
 		reqReader,
-		request.WithTimeout(time.Duration(slaveRecoverInterval)*time.Second), //规定的秒数
+		request.WithTimeout(time.Duration(slaveApiTimeOut)*time.Second), //规定的秒数
 	)
 	_end := time.Now().Unix()
-	util.Log().Info("aria2请求: %s 耗时:%d s", scope, _end-_start)
+	util.Log().Info("aria2请求: %s 耗时:%d s 设置timeout为: %d s", scope, _end-_start, slaveApiTimeOut)
 	return res.CheckHTTPResponse(200).DecodeResponse()
 }
 
@@ -330,10 +330,15 @@ func (s *slaveCaller) Status(task *model.Download) (rpc.StatusInfo, error) {
 	s.parent.lock.RLock()
 	defer s.parent.lock.RUnlock()
 
-	req := &serializer.SlaveAria2Call{
-		Task: task,
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		GID: task.GID, //如果带上gid 进行创建的话
 	}
-
+	req := &serializer.SlaveAria2Call{
+		Task: SimplyTask,
+	}
+	//util.Log().Info("从机发送aria2状态获取的请求体是: %+v", req.Task)
 	res, err := s.SendAria2Call(req, "status")
 	if err != nil {
 		return rpc.StatusInfo{}, err
@@ -353,8 +358,13 @@ func (s *slaveCaller) Cancel(task *model.Download) error {
 	s.parent.lock.RLock()
 	defer s.parent.lock.RUnlock()
 
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		GID: task.GID, //如果带上gid 进行创建的话
+	}
 	req := &serializer.SlaveAria2Call{
-		Task: task,
+		Task: SimplyTask,
 	}
 
 	res, err := s.SendAria2Call(req, "cancel")
@@ -373,8 +383,13 @@ func (s *slaveCaller) Select(task *model.Download, files []int) error {
 	s.parent.lock.RLock()
 	defer s.parent.lock.RUnlock()
 
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		GID: task.GID, //如果带上gid 进行创建的话
+	}
 	req := &serializer.SlaveAria2Call{
-		Task:  task,
+		Task:  SimplyTask,
 		Files: files,
 	}
 
@@ -397,15 +412,76 @@ func (s *slaveCaller) GetConfig() model.Aria2Option {
 	return s.parent.Model.Aria2OptionsSerialized
 }
 
-func (s *slaveCaller) DeleteTempFile(task *model.Download) error {
+func (s *slaveCaller) ReloadTask(task *model.Download, options map[string]interface{}) model.Aria2Option {
 	s.parent.lock.RLock()
 	defer s.parent.lock.RUnlock()
 
+	return s.parent.Model.Aria2OptionsSerialized
+}
+
+func (s *slaveCaller) DeleteTempFile(task *model.Download) error {
+	s.parent.lock.RLock()
+	defer s.parent.lock.RUnlock()
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		Parent: task.Parent, //如果带上gid 进行创建的话
+	}
 	req := &serializer.SlaveAria2Call{
-		Task: task,
+		Task: SimplyTask,
 	}
 
 	res, err := s.SendAria2Call(req, "delete")
+	if err != nil {
+		return err
+	}
+
+	if res.Code != 0 {
+		return serializer.NewErrorFromResponse(res)
+	}
+
+	return nil
+}
+
+func (s *slaveCaller) Start(task *model.Download) error {
+	s.parent.lock.RLock()
+	defer s.parent.lock.RUnlock()
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		GID: task.GID, //如果带上gid 进行创建的话
+	}
+	// 开启下载任务
+	req := &serializer.SlaveAria2Call{
+		Task: SimplyTask,
+	}
+
+	res, err := s.SendAria2Call(req, "start")
+	if err != nil {
+		return err
+	}
+
+	if res.Code != 0 {
+		return serializer.NewErrorFromResponse(res)
+	}
+
+	return nil
+}
+
+func (s *slaveCaller) Pause(task *model.Download) error {
+	s.parent.lock.RLock()
+	defer s.parent.lock.RUnlock()
+	//由于查询aria2 只需要使用gid来查状态,所以发送的时候,查看aria2 是否需要简化
+	//简化task
+	SimplyTask := &model.Download{
+		GID: task.GID, //如果带上gid 进行创建的话
+	}
+	// 开启下载任务
+	req := &serializer.SlaveAria2Call{
+		Task: SimplyTask,
+	}
+
+	res, err := s.SendAria2Call(req, "pause")
 	if err != nil {
 		return err
 	}
