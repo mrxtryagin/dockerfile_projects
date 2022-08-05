@@ -1,0 +1,97 @@
+# yaml 配置
+version: '3.9'
+# 网络
+# 容器访问宿主 使用 host.docker.internal(这个别名) 或者docker0的ip https://docs.docker.com/desktop/networking/
+# 宿主访问容器 用-p映射即可
+# 容器之间相互访问 使用自定义网络最佳(因为自定义网络自然可以通过别名访问)
+# docker-compose -p 'test-network'(stack name) -d (backgroud) up 
+# 该版本是不指定网络的版本
+
+
+
+
+# 服务
+services:
+  # 名称
+  nginx1:
+    # 类型
+    image: nginx:latest
+    # 其他
+    restart: always
+    # 启动端口
+    ports:
+      - "8081:80"
+    # 启动网络
+    networks: 
+      - test-net-1
+    # # 启动容器
+    container_name: nginx1
+    # # 启动容器数量
+    # replicas: 1
+    # 启动容器资源限制
+    deploy:
+      resources:
+      # 最多的配置
+        limits:
+          cpus: "1"
+          memory: "100M"
+        # 必须(至少的配置)
+        reservations:
+          cpus: "1"
+          memory: "100M"
+    # 启动容器环境变量
+    # env:
+    #   - name: "TEST_VAR"
+    #     value: "test
+    # 映射 host.docker.internal host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 名称
+  nginx2:
+    # 类型
+    image: nginx:latest
+    # 其他
+    restart: always
+    # 启动端口
+    ports:
+      - "8082:80"
+    # 启动网络
+    networks: 
+      - test-net-1
+    # # 启动容器
+    container_name: nginx2
+    # # 启动容器数量
+    # replicas: 1
+    # 启动容器资源限制
+    deploy:
+      resources:
+      # 最多的配置
+        limits:
+          cpus: "1"
+          memory: "100M"
+        # 必须(至少的配置)
+        reservations:
+          cpus: "1"
+          memory: "100M"
+    # 启动容器环境变量
+    # env:
+    #   - name: "TEST_VAR"
+    #     value: "test
+    # 映射 host.docker.internal host 方便让容器访问宿主服务
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# network 放后面 这样down的时候就不会有问题   
+# Error response from daemon: error while removing network: network test-net-1 id e7810fbce5413fd873f2b1bde561041aca35c2fcddbb19cb559a03d5a052381d has active endpoints 
+networks: 
+   test-net-1:
+      driver: bridge
+      # 名称
+      name: test-net-1
+      #  驱动
+      # ipam:
+      #   # config 设置 ip信息
+      #   config:
+      #     - subnet: 172.20.0.0/16
+      #       gateway: 172.20.0.1
