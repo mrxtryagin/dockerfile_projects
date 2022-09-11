@@ -1,0 +1,74 @@
+# yaml 配置
+version: '3.9'
+# 网络
+# 容器访问宿主 使用 host.docker.internal(这个别名) 或者docker0的ip https://docs.docker.com/desktop/networking/
+# 宿主访问容器 用-p映射即可
+# 容器之间相互访问 使用自定义网络最佳(因为自定义网络自然可以通过别名访问)
+# docker-compose -p 'test-network'(stack name) -d (backgroud) up 
+# 该版本是不指定网络的版本
+
+
+
+
+# 服务
+services:
+  # 名称
+  mycloudreve1:
+    # 类型
+    image: mrx1998/cloudreve:0.39
+    # 其他
+    restart: unless-stopped
+    # 启动端口
+    ports:
+      - "5213:5212"
+    # 启动网络
+    networks: 
+      - g1
+    # # 启动容器
+    container_name: mycloudreve1
+    volumes:
+      - /root/slave_groups/g1/new_cloudreve/uploads:/cloudreve_project/uploads
+      - /root/slave_groups/g1/new_cloudreve/conf.ini:/cloudreve_project/config
+      - /root/slave_groups/g1/new_cloudreve/avatar:/cloudreve_project/avatar
+      - /root/slave_groups/g1/new_cloudreve/logs:/cloudreve_project/logInfo
+      - /root/slave_groups/g1/new_cloudreve/statics:/cloudreve_project/statics
+      - /downloads:/downloads
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  aria1:
+    # 类型
+    image: p3terx/aria2-pro
+    # 其他
+    restart: unless-stopped
+    # 启动端口
+    ports:
+      - "6801:6800"
+      - "6889:6888"
+      - "6889:6888/udp"
+    # 启动网络
+    networks: 
+      - g1
+    # # 启动容器
+    container_name: aria1
+    volumes:
+      - /root/slave_groups/g1/aria2_no_upload:/config
+      - /downloads:/downloads
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# network 放后面 这样down的时候就不会有问题   
+# Error response from daemon: error while removing network: network test-net-1 id e7810fbce5413fd873f2b1bde561041aca35c2fcddbb19cb559a03d5a052381d has active endpoints 
+networks: 
+   g1:
+      driver: bridge
+      # 名称
+      name: g1
+      #  驱动
+      # ipam:
+      #   # config 设置 ip信息
+      #   config:
+      #     - subnet: 172.20.0.0/16
+      #       gateway: 172.20.0.1
