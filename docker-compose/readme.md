@@ -21,3 +21,8 @@ failed to remove network test-net-1: Error response from daemon: error while rem
 
 ```
 的错误(猜测是因为没找到services只找到网络的原因,也就是主要还是因为没指定配置文件)
+
+
+## docker版本问题
+host.docker.internal:host-gateway
+需要Docker 20.10 及以上版本
