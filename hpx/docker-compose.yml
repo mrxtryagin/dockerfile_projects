@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  happypandax:
+    image: hpx:v2
+    # start this container automatically on boot
+    restart: always
+    ports:
+      - "7006:7006"
+      - "7007:7007"
+      - "7008:7008"
+    volumes:
+      - /home/mrx/manka_readers/hpx/datadir:/data
+      - /mnt/nas/disk1/downloads/manka:/content
+      - /home/mrx/manka_readers/hpx/config/config.yaml:/happypandax/config.yaml
+    links:
+      - db
+
+  db:
+    image: postgres:latest
+    restart: always
+    ports:
+      - 7005:5432
+    environment:
+      POSTGRES_USER: 'happypandax'
+      POSTGRES_PASSWORD: 'postgres'
+    volumes:
+      - /home/mrx/manka_readers/hpx/pg_data:/var/lib/postgresql/data
+    logging:
+      driver: none
+
+volumes:
+  database:
+    driver: local

@@ -1,0 +1,12 @@
+import:
+    skip_existing_galleries: true
+    transparent_nested_folders: true
+watch:
+    enable: true
+    dirs:
+      - ${HPX_CONTENT}
+    options:
+      ${HPX_CONTENT}:
+        import.scan_on_startup: true
+plugin:
+    plugin_dir: ${HPX_DATA}/plugins
